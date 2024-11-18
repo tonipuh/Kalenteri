@@ -1,2 +1,5 @@
 # .gitignore
 .next
+node_modules/
+dist/
+.env

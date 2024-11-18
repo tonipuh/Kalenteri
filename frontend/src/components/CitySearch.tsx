@@ -1,53 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import { GeolocationCoordinates } from '../types';
-
-interface City {
-  name: string;
-  country: string;
-  lat: number;
-  lon: number;
-  population: number;
-}
+import React, { useState } from 'react';
+import { City } from '../types/types';
 
 interface CitySearchProps {
-  onCitySelect: (coords: GeolocationCoordinates) => void;
+  onCitySelect: (location: { latitude: number; longitude: number }) => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
 const CitySearch: React.FC<CitySearchProps> = ({ onCitySelect }) => {
-  console.log('CitySearch rendered, onCitySelect:', typeof onCitySelect); // Debug
-
-  const [searchTerm, setSearchTerm] = useState('Helsinki, Finland');
-  const [cities, setCities] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [cities, setCities] = useState<City[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    const searchCities = async () => {
-      if (searchTerm.length < 2) {
-        setCities([]);
-        return;
-      }
+  const handleSearch = async () => {
+    if (searchTerm.trim() === '') return;
+    setIsLoading(true);
+    try {
+      const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
+      console.log('Searching for:', encodedSearchTerm);
 
-      setIsLoading(true);
-      try {
-        const response = await fetch(`/api/cities?search=${searchTerm}`);
-        const data = await response.json();
-        setCities(data);
-      } catch (error) {
-        console.error('Error searching cities:', error);
-      }
+      const response = await fetch(`http://localhost:4000/api/cities?search=${encodedSearchTerm}`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data: City[] = await response.json();
+      setCities(data);
+    } catch (error) {
+      console.error('Error fetching cities:', error);
+      setCities([]);
+    } finally {
       setIsLoading(false);
-    };
+    }
+  };
 
-    const timeoutId = setTimeout(searchCities, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
-
-  const handleCitySelect = (city: any) => {
-    console.log('Selected city:', city); // Debug
+  const handleCitySelect = (city: City) => {
     setSearchTerm(`${city.name}, ${city.country}`);
-    setCities([]); // Suljetaan lista
+    setCities([]);
     onCitySelect({
       latitude: city.lat,
       longitude: city.lon
@@ -55,37 +39,37 @@ const CitySearch: React.FC<CitySearchProps> = ({ onCitySelect }) => {
   };
 
   return (
-    <div className="relative w-full">
-      <input
-        type="text"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        placeholder="Hae kaupunkia..."
-        className="w-full p-2 rounded bg-white text-gray-900 border border-gray-300"
-      />
-
+    <div className="relative">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              handleSearch();
+            }
+          }}
+          placeholder="Search for a city"
+          className="p-2 border rounded bg-white text-gray-900 flex-grow"
+        />
+        <button
+          onClick={handleSearch}
+          className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          disabled={isLoading || searchTerm.trim() === ''}
+        >
+          {isLoading ? 'Loading...' : 'Search'}
+        </button>
+      </div>
       {cities.length > 0 && (
-        <ul className="absolute w-full bg-white border border-gray-300 rounded mt-1 max-h-60 overflow-auto z-50 shadow-lg">
+        <ul className="absolute z-10 w-full mt-1 bg-white border rounded shadow-lg">
           {cities.map((city) => (
             <li
-              key={`${city.name}-${city.country}`}
-              onClick={() => {
-                console.log('City clicked:', city); // Debug
-                handleCitySelect(city);
-              }}
-              className="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200 last:border-b-0"
+              key={`${city.name}-${city.lat}-${city.lon}`}
+              onClick={() => handleCitySelect(city)}
+              className="p-2 hover:bg-gray-100 cursor-pointer text-gray-900"
             >
-              <div className="flex justify-between items-center">
-                <div>
-                  <span className="font-medium text-gray-900">{city.name}</span>
-                  <span className="text-gray-600 ml-2">{city.country}</span>
-                </div>
-                {city.population && (
-                  <span className="text-sm text-gray-500">
-                    {new Intl.NumberFormat('fi-FI').format(city.population)}
-                  </span>
-                )}
-              </div>
+              {city.name}, {city.country} {city.population > 0 && `(${city.population.toLocaleString()})`}
             </li>
           ))}
         </ul>
