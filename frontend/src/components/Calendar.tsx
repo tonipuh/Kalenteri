@@ -38,11 +38,12 @@ export default function Calendar({ location, startMonth, startYear, endMonth, en
       location.longitude
     );
 
-    // Tarkistetaan ylittääkö auringonlasku keskiyön
-    const sunsetHour = new Date(times.sunset).getHours();
-    const crossesMidnight = sunsetHour < 12;
+    // Tarkistetaan ylittääkö auringonlasku keskiyön vain korkeilla leveysasteilla
+    const currentSunset = new Date(times.sunset);
+    const isHighLatitude = Math.abs(location.latitude) > 60;
+    const crossesMidnight = isHighLatitude && currentSunset.getHours() < 12;
 
-    // Jos aurinko laskee seuraavan vuorokauden puolella,
+    // Jos aurinko laskee seuraavan vuorokauden puolella korkeilla leveysasteilla,
     // käytetään seuraavan päivän laskuaikaa
     const actualSunset = crossesMidnight ? nextTimes.sunset : times.sunset;
 
@@ -61,21 +62,28 @@ export default function Calendar({ location, startMonth, startYear, endMonth, en
     const localSunrise = new Date(times.sunrise).toLocaleString('en-US', {
       timeZone: location.timezone,
       hour: 'numeric',
+      minute: 'numeric',
       hour12: false
     });
 
     const localSunset = new Date(actualSunset).toLocaleString('en-US', {
       timeZone: location.timezone,
       hour: 'numeric',
+      minute: 'numeric',
       hour12: false
     });
 
-    // Jos aurinko laskee seuraavana päivänä, sunset on 24
-    const sunsetHourInt = crossesMidnight ? 24 : parseInt(localSunset);
+    // Parsitaan tunnit ja minuutit
+    const [sunriseHour, sunriseMinute] = localSunrise.split(':').map(Number);
+    const [sunsetHour, sunsetMinute] = localSunset.split(':').map(Number);
+
+    // Muunnetaan desimaalitunneiksi
+    const sunriseDecimal = sunriseHour + (sunriseMinute / 60);
+    const sunsetDecimal = crossesMidnight ? 24 : (sunsetHour + (sunsetMinute / 60));
 
     return {
-      sunrise: parseInt(localSunrise),
-      sunset: sunsetHourInt,
+      sunrise: sunriseDecimal,
+      sunset: sunsetDecimal,
       isPolarDay: false,
       isPolarNight: false,
       isAscending
