@@ -1,4 +1,4 @@
-export const majorCities = [
+const cities = [
     {
         name: "Paris",
         country: "France",
@@ -56,3 +56,5 @@ export const majorCities = [
         population: 631695
     }
 ];
+
+export default cities;

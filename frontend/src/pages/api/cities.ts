@@ -3,25 +3,27 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { search } = req.query;
 
-  if (!search || typeof search !== 'string') {
-    return res.status(400).json({ error: 'Search parameter is required' });
-  }
+  console.log('Cities API called with:', { search });
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:4000';
+  console.log('Using backend URL:', backendUrl);
 
   try {
-    console.log('Fetching cities with search term:', search); // Debug-loki
-    const response = await fetch(`http://backend:4000/api/cities?search=${encodeURIComponent(search)}`);
+    const url = `${backendUrl}/cities?search=${search}`;
+    console.log('Making request to:', url);
+
+    const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`Backend responded with status ${response.status}`);
+      const text = await response.text();
+      console.log('Backend error:', text);
+      throw new Error(`Backend responded with ${response.status}: ${text}`);
     }
 
     const data = await response.json();
-    res.json(data);
+    res.status(200).json(data);
   } catch (error) {
-    console.error('Error in /api/cities:', error);
-    res.status(500).json({
-      error: 'Failed to fetch cities',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
+    console.log('Error in cities API:', error);
+    res.status(500).json({ error: 'Failed to fetch cities' });
   }
 }

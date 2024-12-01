@@ -1,27 +1,114 @@
-import React, { useState, useEffect } from 'react';
-import { GeolocationCoordinates } from '../types';
+import React from 'react';
+import SunCalc from 'suncalc';
 
-interface CalendarProps {
-  month: number;
-  year: number;
+type Props = {
+  location: {
+    latitude: number;
+    longitude: number;
+    timezone: string;
+    name?: string;
+    country?: string;
+  };
+  startMonth: number;
+  startYear: number;
   endMonth: number;
   endYear: number;
-  location: GeolocationCoordinates;
-}
-
-const isDSTChange = (date: Date) => {
-  const prevDay = new Date(date);
-  prevDay.setDate(date.getDate() - 1);
-  return prevDay.getTimezoneOffset() !== date.getTimezoneOffset();
 };
 
-const Calendar: React.FC<CalendarProps> = ({ month, year, endMonth, endYear, location }) => {
-  const [sunlightData, setSunlightData] = useState<Map<string, any>>(new Map());
-  const [isLoading, setIsLoading] = useState(true);
+export default function Calendar({ location, startMonth, startYear, endMonth, endYear }: Props) {
+  const MONTHS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
-  const getMonthsToShow = () => {
+  const getDayTimes = (date: Date) => {
+    const times = SunCalc.getTimes(date, location.latitude, location.longitude);
+    const nextDay = new Date(date);
+    nextDay.setDate(date.getDate() + 1);
+    const nextTimes = SunCalc.getTimes(nextDay, location.latitude, location.longitude);
+
+    // Tarkistetaan onko auringonnousu/lasku olemassa
+    const hasSunrise = !isNaN(times.sunrise.getTime());
+    const hasSunset = !isNaN(times.sunset.getTime());
+
+    // Käytetään auringon keskipäivää (solar noon)
+    const solarNoonPosition = SunCalc.getPosition(
+      times.solarNoon,
+      location.latitude,
+      location.longitude
+    );
+
+    // Tarkistetaan ylittääkö auringonlasku keskiyön
+    const sunsetHour = new Date(times.sunset).getHours();
+    const crossesMidnight = sunsetHour < 12;
+
+    // Jos aurinko laskee seuraavan vuorokauden puolella,
+    // käytetään seuraavan päivän laskuaikaa
+    const actualSunset = crossesMidnight ? nextTimes.sunset : times.sunset;
+
+    const isAscending = Math.abs(solarNoonPosition.altitude) < 0.334;
+
+    if (!hasSunrise || !hasSunset) {
+      return {
+        sunrise: -1,
+        sunset: -1,
+        isPolarDay: solarNoonPosition.altitude > 0,
+        isPolarNight: solarNoonPosition.altitude < 0,
+        isAscending
+      };
+    }
+
+    const localSunrise = new Date(times.sunrise).toLocaleString('en-US', {
+      timeZone: location.timezone,
+      hour: 'numeric',
+      hour12: false
+    });
+
+    const localSunset = new Date(actualSunset).toLocaleString('en-US', {
+      timeZone: location.timezone,
+      hour: 'numeric',
+      hour12: false
+    });
+
+    // Jos aurinko laskee seuraavana päivänä, sunset on 24
+    const sunsetHourInt = crossesMidnight ? 24 : parseInt(localSunset);
+
+    return {
+      sunrise: parseInt(localSunrise),
+      sunset: sunsetHourInt,
+      isPolarDay: false,
+      isPolarNight: false,
+      isAscending
+    };
+  };
+
+  const getHourColor = (hour: number, times: ReturnType<typeof getDayTimes>, isSunday: boolean) => {
+    if (times.isPolarDay) {
+      return isSunday ? 'bg-[#ffe6e6]' : 'bg-yellow-100';
+    }
+    if (times.isPolarNight) {
+      return isSunday ? 'bg-[#f0f0f0]' : 'bg-gray-200';
+    }
+
+    if (hour >= times.sunrise && hour < times.sunset) {
+      return isSunday ? 'bg-[#ffe6e6]' : 'bg-yellow-100';
+    }
+    return isSunday ? 'bg-[#f0f0f0]' : 'bg-gray-200';
+  };
+
+  const getDaysInMonth = (year: number, month: number) => {
+    return new Date(year, month, 0).getDate();
+  };
+
+  const getWeekDay = (year: number, month: number, day: number) => {
+    const date = new Date(year, month - 1, day);
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[date.getDay()];
+  };
+
+  const getMonthRange = () => {
     const months = [];
-    let currentDate = new Date(year, month - 1);
+    let currentDate = new Date(startYear, startMonth - 1);
     const endDate = new Date(endYear, endMonth - 1);
 
     while (currentDate <= endDate) {
@@ -31,135 +118,62 @@ const Calendar: React.FC<CalendarProps> = ({ month, year, endMonth, endYear, loc
       });
       currentDate.setMonth(currentDate.getMonth() + 1);
     }
+
     return months;
   };
 
-  useEffect(() => {
-    const fetchAllData = async () => {
-      setIsLoading(true);
-      const newData = new Map();
-
-      for (const { month: m, year: y } of getMonthsToShow()) {
-        const daysInMonth = new Date(y, m, 0).getDate();
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const date = new Date(y, m - 1, day);
-          const dateStr = date.toISOString().split('T')[0];
-
-          try {
-            const response = await fetch(
-              `/api/sunlight?` +
-              `lat=${location?.latitude || 60.1699}&` +
-              `lon=${location?.longitude || 24.9384}&` +
-              `date=${dateStr}`
-            );
-
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const data = await response.json();
-            newData.set(dateStr, data);
-          } catch (error) {
-            console.error(`Error fetching data for ${dateStr}:`, error);
-          }
-        }
-      }
-
-      setSunlightData(newData);
-      setIsLoading(false);
-    };
-
-    fetchAllData();
-  }, [location, month, year, endMonth, endYear]);
-
-  const isNightTime = (hour: number, date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    const times = sunlightData.get(dateStr);
-
-    if (!times) {
-      return 'day';
-    }
-
-    const currentTime = new Date(dateStr);
-    currentTime.setHours(hour, 0, 0, 0);
-
-    const dawn = new Date(times.dawn);
-    const dusk = new Date(times.dusk);
-    const sunrise = new Date(times.sunrise);
-    const sunset = new Date(times.sunset);
-
-    if (currentTime < dawn || currentTime > dusk) {
-      return 'night';
-    } else if (currentTime < sunrise || currentTime > sunset) {
-      return 'twilight';
-    }
-    return 'day';
-  };
-
   return (
-    <div className="p-4 space-y-8">
-      {isLoading ? (
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2">Ladataan auringon aikoja...</p>
-        </div>
-      ) : (
-        getMonthsToShow().map(({ month: m, year: y }) => (
-          <div key={`${m}-${y}`}>
-            <h2 className="text-xl font-bold mb-4">
-              {new Intl.DateTimeFormat('fi-FI', { month: 'long', year: 'numeric' }).format(new Date(y, m - 1))}
-            </h2>
-            <table className="w-full border-collapse mb-8">
-              <thead>
-                <tr>
-                  <th className="px-2">Pvm</th>
-                  <th className="px-2">Vkp</th>
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <th key={i} className="w-8">{i}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => {
-                  const day = new Date(y, m - 1, i + 1);
-                  const isSunday = day.getDay() === 0;
-                  const isDST = isDSTChange(day);
+    <div className="p-4">
+      <h2 className="text-3xl font-bold mb-6">
+        {location.name}, {location.country}
+      </h2>
 
-                  return (
-                    <tr key={i} className={isDST ? "border-b-2 border-yellow-400" : ""}>
-                      <td className={`px-2 text-center border border-gray-200 ${isSunday ? "text-red-600" : ""}`}>
-                        {i + 1}
-                      </td>
-                      <td className={`px-2 text-center border border-gray-200 ${isSunday ? "text-red-600" : ""}`}>
-                        {new Intl.DateTimeFormat('fi-FI', { weekday: 'short' }).format(day)}
-                      </td>
-                      {Array.from({ length: 24 }, (_, hour) => {
-                        const timeStatus = isNightTime(hour, day);
-                        let bgColor;
+      {getMonthRange().map(({ month, year }) => (
+        <div key={`${month}-${year}`} className="mb-12">
+          <h3 className="text-2xl font-bold mb-4">
+            {MONTHS[month - 1]} {year}
+          </h3>
 
-                        if (timeStatus === 'night') {
-                          bgColor = isSunday ? 'bg-gray-200' : 'bg-gray-300';
-                        } else if (timeStatus === 'twilight') {
-                          bgColor = isSunday ? 'bg-gray-100' : 'bg-gray-200';
-                        } else {
-                          bgColor = isSunday ? 'bg-red-50' : 'bg-white';
-                        }
+          <div className="flex flex-col gap-1">
+            {/* Tunnit ylhäällä */}
+            <div className="flex items-center">
+              <div className="w-32"></div>
+              <div className="flex-1 grid grid-cols-24 gap-px">
+                {Array.from({ length: 24 }, (_, i) => (
+                  <div key={i} className="text-center text-xs">
+                    {i.toString().padStart(2, '0')}
+                  </div>
+                ))}
+              </div>
+            </div>
 
-                        return (
-                          <td
-                            key={hour}
-                            className={`w-8 h-8 border border-gray-100 ${bgColor}`}
-                          />
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {/* Päivät ja tunnit */}
+            {Array.from({ length: getDaysInMonth(year, month) }, (_, dayIndex) => {
+              const day = dayIndex + 1;
+              const weekDay = getWeekDay(year, month, day);
+              const isSunday = weekDay === 'Sun';
+              const times = getDayTimes(new Date(year, month - 1, day));
+
+              return (
+                <div key={dayIndex} className="flex items-center">
+                  <div className={`w-32 font-medium ${isSunday ? 'text-red-600' : ''}`}>
+                    {day} {weekDay}
+                  </div>
+                  <div className="flex-1 grid grid-cols-24 gap-px">
+                    {Array.from({ length: 24 }, (_, hour) => (
+                      <div
+                        key={hour}
+                        className={`h-8 ${getHourColor(hour, times, isSunday)}`}
+                        title={`${day} ${weekDay}, ${hour}:00`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))
-      )}
+        </div>
+      ))}
     </div>
   );
-};
-
-export default Calendar;
+}

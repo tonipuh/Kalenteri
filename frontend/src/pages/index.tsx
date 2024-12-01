@@ -1,47 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Calendar from '../components/Calendar';
 import CommandPanel from '../components/CommandPanel';
+import { GeolocationCoordinates, City } from '../types';
+import CitySearch from '../components/CitySearch';
 
 export default function Home() {
-  const [dateRange, setDateRange] = useState({
-    start: { month: new Date().getMonth(), year: new Date().getFullYear() },
-    end: {
-      month: new Date().getMonth() + 3,
-      year: new Date().getFullYear()
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [endMonthState, setEndMonth] = useState(selectedMonth);
+  const [endYearState, setEndYear] = useState(selectedYear);
+  const [location, setLocation] = useState<City | null>(null);
+
+  const handleCitySelect = (city: City) => {
+    console.log('Index - Raw city data:', city);
+
+    if (!city.latitude || !city.longitude) {
+      console.error('Invalid coordinates:', city);
+      return;
     }
-  });
-  const [location, setLocation] = useState({
-    latitude: 60.1699,
-    longitude: 24.9384
-  });
 
-  const handleDateRangeChange = (
-    start: { month: number; year: number },
-    end: { month: number; year: number }
-  ) => {
-    console.log('Date range changed:', { start, end });
-    setDateRange({ start, end });
-  };
-
-  const handleLocationChange = (newLocation: { latitude: number; longitude: number }) => {
-    console.log('Location changed:', newLocation);
-    setLocation(newLocation);
+    setLocation({
+      latitude: city.latitude,
+      longitude: city.longitude,
+      timezone: city.timezone
+    });
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="flex h-screen">
       <CommandPanel
-        onDateRangeChange={handleDateRangeChange}
-        onLocationChange={handleLocationChange}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        endMonth={endMonthState}
+        endYear={endYearState}
+        onMonthChange={setSelectedMonth}
+        onYearChange={setSelectedYear}
+        onEndMonthChange={setEndMonth}
+        onEndYearChange={setEndYear}
+        onLocationChange={setLocation}
       />
-      <div className="flex-1 p-4">
-        <Calendar
-          month={dateRange.start.month}
-          year={dateRange.start.year}
-          endMonth={dateRange.end.month}
-          endYear={dateRange.end.year}
-          location={location}
-        />
+      <div className="ml-64 flex-1 p-4 overflow-auto h-screen">
+        {location && (
+          <Calendar
+            location={location}
+            startMonth={selectedMonth}
+            startYear={selectedYear}
+            endMonth={endMonthState}
+            endYear={endYearState}
+          />
+        )}
       </div>
     </div>
   );
