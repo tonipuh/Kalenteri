@@ -122,3 +122,15 @@ body {
   .grid-cols-24 {
     grid-template-columns: repeat(24, minmax(40px, 1fr));
   }
+
+/* Tulostustyylit */
+@media print {
+  .bg-navy-blue {
+    display: none;  /* Piilottaa CommandPanel:in tulostettaessa */
+  }
+
+  /* Varmistetaan että kalenteri käyttää koko leveyden tulostettaessa */
+  .flex-1 {
+    width: 100%;
+  }
+}
