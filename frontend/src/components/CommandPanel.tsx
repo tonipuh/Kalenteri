@@ -46,7 +46,7 @@ export default function CommandPanel({
 
   return (
     <div className="flex">
-      <div className="bg-navy-blue p-4 text-white w-64 min-h-screen">
+      <div className="bg-navy-blue p-4 text-white w-68 min-h-screen">
         <div className="flex flex-col space-y-6">
           <div>
             <label className="block text-sm mb-2">City:</label>
