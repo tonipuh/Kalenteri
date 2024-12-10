@@ -13,9 +13,18 @@ type Props = {
   startYear: number;
   endMonth: number;
   endYear: number;
+  events?: DayEvent[];
 };
 
-export default function Calendar({ location, startMonth, startYear, endMonth, endYear }: Props) {
+interface DayEvent {
+  date: Date;
+  hour: number;
+  total: number;
+}
+
+export default function Calendar({ location, startMonth, startYear, endMonth, endYear, events }: Props) {
+  console.log('Calendar received events:', events);
+
   const MONTHS = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -158,23 +167,78 @@ export default function Calendar({ location, startMonth, startYear, endMonth, en
             {/* Päivät ja tunnit */}
             {Array.from({ length: getDaysInMonth(year, month) }, (_, dayIndex) => {
               const day = dayIndex + 1;
-              const weekDay = getWeekDay(year, month, day);
-              const isSunday = weekDay === 'Sun';
-              const times = getDayTimes(new Date(year, month - 1, day));
+              const date = new Date(year, month - 1, day);
+              const times = getDayTimes(date);
+              const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+              // DST muutoksen tarkistus
+              const previousDay = new Date(date);
+              previousDay.setDate(date.getDate() - 1);
+
+              const currentOffset = new Date(date.toLocaleString('en-US', { timeZone: location.timezone })).getTimezoneOffset();
+              const previousOffset = new Date(previousDay.toLocaleString('en-US', { timeZone: location.timezone })).getTimezoneOffset();
+
+              const dstChange = currentOffset !== previousOffset;
 
               return (
                 <div key={dayIndex} className="flex items-center">
-                  <div className={`w-32 font-medium ${isSunday ? 'text-red-600' : ''}`}>
-                    {day} {weekDay}
+                  <div className={`w-32 font-medium ${isWeekend ? 'text-red-600' : ''}`}>
+                    {day}.{month}
                   </div>
                   <div className="flex-1 grid grid-cols-24 gap-px">
-                    {Array.from({ length: 24 }, (_, hour) => (
-                      <div
-                        key={hour}
-                        className={`h-8 ${getHourColor(hour, times, isSunday)}`}
-                        title={`${day} ${weekDay}, ${hour}:00`}
-                      />
-                    ))}
+                    {Array.from({ length: 24 }, (_, hour) => {
+                      const hourDecimal = hour;
+                      let className = "calendar-cell ";
+
+                      const event = events?.find(e => {
+                        const eventDate = new Date(e.date);
+
+                        // Debug tulostus
+                        if (day === 3 && month === 12 && year === 2024 && hour === 13) {
+                          console.log('Checking event:', {
+                            event: e,
+                            eventDate,
+                            matching: {
+                              day: eventDate.getDate() === day,
+                              month: eventDate.getMonth() === month - 1,
+                              year: eventDate.getFullYear() === year,
+                              hour: e.hour === hour
+                            }
+                          });
+                        }
+
+                        return eventDate.getDate() === day &&
+                               eventDate.getMonth() === month - 1 &&
+                               eventDate.getFullYear() === year &&
+                               e.hour === hour;
+                      });
+
+                      if (date.getDay() === 0) {
+                        className += "sunday ";
+                      }
+
+                      if (hour >= times.sunrise && hour <= times.sunset) {
+                        className += "daylight ";
+                      } else {
+                        className += "night ";
+                      }
+
+                      if (dstChange && hour === 2) {
+                        className += "dst-change ";
+                      }
+
+                      return (
+                        <div
+                          key={hour}
+                          className={className}
+                          data-dst-type={dstChange ? (currentOffset < previousOffset ? "Kesäaika alkaa" : "Kesäaika päättyy") : ""}
+                        >
+                          {event && (
+                            <span className="font-bold">{event.total}</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );

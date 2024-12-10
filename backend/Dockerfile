@@ -1,15 +1,17 @@
-FROM node:20-alpine
+FROM node:18-alpine
 
 WORKDIR /app
 
-# Asennetaan tzdata aikavyöhykkeitä varten
-RUN apk add --no-cache tzdata
-
 COPY package*.json ./
+COPY tsconfig.json ./
+
+# Asennetaan tsx
 RUN npm install
+RUN npm install -g tsx
 
 COPY . .
 
 EXPOSE 4000
 
-CMD ["npm", "start"]
+# Käytetään tsx:ää ts-noden sijaan
+CMD ["tsx", "src/index.ts"]

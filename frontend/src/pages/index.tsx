@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Calendar from '../components/Calendar';
 import CommandPanel from '../components/CommandPanel';
-import { GeolocationCoordinates, City } from '../types';
+import { City } from '../types';
 import CitySearch from '../components/CitySearch';
 
 export default function Home() {
@@ -20,6 +20,8 @@ export default function Home() {
     }
 
     setLocation({
+      name: city.name,
+      country: city.country,
       latitude: city.latitude,
       longitude: city.longitude,
       timezone: city.timezone
