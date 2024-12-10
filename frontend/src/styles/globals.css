@@ -70,6 +70,50 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.calendar-cell {
+  padding: 4px;
+  border: 1px solid #ccc;
+  text-align: center;
+  height: 40px;
+}
+
+.daylight {
+  background-color: rgba(255, 235, 59, 0.15); /* Vaalea keltainen 15% */
+}
+
+.night {
+  background-color: rgba(0, 0, 0, 0.15); /* Vaalea harmaa 15% */
+}
+
+/* Sunnuntain taustaväri sekoitetaan muihin väreihin */
+.sunday {
+  position: relative;
+}
+
+.sunday::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 0, 0, 0.15); /* Punainen 15% */
+  pointer-events: none;
+}
+
+.twilight {
+  background-color: #7986cb;
+  color: white;
+}
+
+.dst-change {
+  border-bottom: 2px dashed #f00;
+}
+
+.weekend {
+  background-color: #ffcccb;
+}
+
 /* ... muut aiemmat kalenterin tyylit ... */
 
 /* Responsiivisuus */

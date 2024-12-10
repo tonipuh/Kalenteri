@@ -10,6 +10,12 @@ A web application for visualizing sunrise and sunset times across different loca
 - Responsive design
 - Print support
 - Clean UI
+- Excel import support for event data
+  - Date (Column A)
+  - Time (Column B)
+  - Count (Column C)
+  - Automatic grouping by hour
+  - Visual representation in calendar
 
 ## Architecture
 
@@ -21,6 +27,8 @@ The application consists of two main parts:
 - City search functionality using all-the-cities database
 - Timezone handling with geo-tz
 - Sun calculations with suncalc
+- multer (file upload handling)
+- xlsx (Excel file processing)
 
 ### Frontend (Next.js/React)
 
@@ -28,6 +36,7 @@ The application consists of two main parts:
 - Tailwind CSS for styling
 - Responsive grid layout
 - Print-friendly design
+- react-toastify (user notifications)
 
 ## Setup
 
@@ -107,3 +116,26 @@ bash
 npm run build
 npm start
 ```
+
+## Excel Import Format
+
+The application accepts Excel files (.xlsx, .xls) with the following format:
+
+| pvm        | kello | kpl |
+| ---------- | ----- | --- |
+| 2024-01-01 | 08:15 | 5   |
+| 2024-01-01 | 08:30 | 3   |
+
+- Column A: Date in YYYY-MM-DD format
+- Column B: Time in HH:mm format
+- Column C: Numeric count
+
+Events are automatically grouped by hour and displayed in the calendar.
+
+## API Endpoints
+
+### POST /api/events
+
+- Accepts multipart/form-data with Excel file
+- Returns grouped events data
+- Error handling for invalid files and formats
